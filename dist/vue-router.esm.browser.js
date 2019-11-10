@@ -930,7 +930,12 @@ function normalizeLocation (
   if (next._normalized) {
     return next
   } else if (next.name) {
-    return extend({}, raw)
+    next = extend({}, raw);
+    const params = next.params;
+    if (params && typeof params === 'object') {
+      next.params = extend({}, params);
+    }
+    return next
   }
 
   // relative params
@@ -1221,7 +1226,8 @@ function createRouteMap (
   routes,
   oldPathList,
   oldPathMap,
-  oldNameMap
+  oldNameMap,
+  parentPath
 ) {
   // the path list is used to control path matching priority
   const pathList = oldPathList || [];
@@ -1231,7 +1237,7 @@ function createRouteMap (
   const nameMap = oldNameMap || Object.create(null);
 
   routes.forEach(route => {
-    addRouteRecord(pathList, pathMap, nameMap, route);
+    addRouteRecord(pathList, pathMap, nameMap, route, undefined, undefined, parentPath);
   });
 
   // ensure wildcard routes are always at the end
@@ -1268,7 +1274,8 @@ function addRouteRecord (
   nameMap,
   route,
   parent,
-  matchAs
+  matchAs,
+  parentPath
 ) {
   const { path, name } = route;
   {
@@ -1280,6 +1287,8 @@ function addRouteRecord (
       )} cannot be a ` + `string id. Use an actual component instead.`
     );
   }
+
+  parent = parentPath ? pathMap[parentPath] : parent;
 
   const pathToRegexpOptions =
     route.pathToRegexpOptions || {};
@@ -1423,8 +1432,8 @@ function createMatcher (
 ) {
   const { pathList, pathMap, nameMap } = createRouteMap(routes);
 
-  function addRoutes (routes) {
-    createRouteMap(routes, pathList, pathMap, nameMap);
+  function addRoutes (routes, parentPath) {
+    createRouteMap(routes, pathList, pathMap, nameMap, parentPath);
   }
 
   function match (
@@ -1800,7 +1809,10 @@ function pushState (url, replace) {
   const history = window.history;
   try {
     if (replace) {
-      history.replaceState({ key: getStateKey() }, '', url);
+      // preserve existing history state as it could be overriden by the user
+      const stateCopy = extend({}, history.state);
+      stateCopy.key = getStateKey();
+      history.replaceState(stateCopy, '', url);
     } else {
       history.pushState({ key: setStateKey(genStateKey()) }, '', url);
     }
@@ -2492,9 +2504,7 @@ function getHash () {
       href = decodeURI(href.slice(0, hashIndex)) + href.slice(hashIndex);
     } else href = decodeURI(href);
   } else {
-    if (searchIndex > -1) {
-      href = decodeURI(href.slice(0, searchIndex)) + href.slice(searchIndex);
-    }
+    href = decodeURI(href.slice(0, searchIndex)) + href.slice(searchIndex);
   }
 
   return href
@@ -2803,8 +2813,8 @@ class VueRouter {
     }
   }
 
-  addRoutes (routes) {
-    this.matcher.addRoutes(routes);
+  addRoutes (routes, parentPath) {
+    this.matcher.addRoutes(routes, parentPath);
     if (this.history.current !== START) {
       this.history.transitionTo(this.history.getCurrentLocation());
     }

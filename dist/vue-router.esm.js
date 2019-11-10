@@ -944,20 +944,25 @@ function normalizeLocation (
   if (next._normalized) {
     return next
   } else if (next.name) {
-    return extend({}, raw)
+    next = extend({}, raw);
+    var params = next.params;
+    if (params && typeof params === 'object') {
+      next.params = extend({}, params);
+    }
+    return next
   }
 
   // relative params
   if (!next.path && next.params && current) {
     next = extend({}, next);
     next._normalized = true;
-    var params = extend(extend({}, current.params), next.params);
+    var params$1 = extend(extend({}, current.params), next.params);
     if (current.name) {
       next.name = current.name;
-      next.params = params;
+      next.params = params$1;
     } else if (current.matched.length) {
       var rawPath = current.matched[current.matched.length - 1].path;
-      next.path = fillParams(rawPath, params, ("path " + (current.path)));
+      next.path = fillParams(rawPath, params$1, ("path " + (current.path)));
     } else if (process.env.NODE_ENV !== 'production') {
       warn(false, "relative params navigation requires a current route.");
     }
@@ -1238,7 +1243,8 @@ function createRouteMap (
   routes,
   oldPathList,
   oldPathMap,
-  oldNameMap
+  oldNameMap,
+  parentPath
 ) {
   // the path list is used to control path matching priority
   var pathList = oldPathList || [];
@@ -1248,7 +1254,7 @@ function createRouteMap (
   var nameMap = oldNameMap || Object.create(null);
 
   routes.forEach(function (route) {
-    addRouteRecord(pathList, pathMap, nameMap, route);
+    addRouteRecord(pathList, pathMap, nameMap, route, undefined, undefined, parentPath);
   });
 
   // ensure wildcard routes are always at the end
@@ -1285,7 +1291,8 @@ function addRouteRecord (
   nameMap,
   route,
   parent,
-  matchAs
+  matchAs,
+  parentPath
 ) {
   var path = route.path;
   var name = route.name;
@@ -1298,6 +1305,8 @@ function addRouteRecord (
       )) + " cannot be a " + "string id. Use an actual component instead."
     );
   }
+
+  parent = parentPath ? pathMap[parentPath] : parent;
 
   var pathToRegexpOptions =
     route.pathToRegexpOptions || {};
@@ -1442,8 +1451,8 @@ function createMatcher (
   var pathMap = ref.pathMap;
   var nameMap = ref.nameMap;
 
-  function addRoutes (routes) {
-    createRouteMap(routes, pathList, pathMap, nameMap);
+  function addRoutes (routes, parentPath) {
+    createRouteMap(routes, pathList, pathMap, nameMap, parentPath);
   }
 
   function match (
@@ -1822,7 +1831,10 @@ function pushState (url, replace) {
   var history = window.history;
   try {
     if (replace) {
-      history.replaceState({ key: getStateKey() }, '', url);
+      // preserve existing history state as it could be overriden by the user
+      var stateCopy = extend({}, history.state);
+      stateCopy.key = getStateKey();
+      history.replaceState(stateCopy, '', url);
     } else {
       history.pushState({ key: setStateKey(genStateKey()) }, '', url);
     }
@@ -2537,9 +2549,7 @@ function getHash () {
       href = decodeURI(href.slice(0, hashIndex)) + href.slice(hashIndex);
     } else { href = decodeURI(href); }
   } else {
-    if (searchIndex > -1) {
-      href = decodeURI(href.slice(0, searchIndex)) + href.slice(searchIndex);
-    }
+    href = decodeURI(href.slice(0, searchIndex)) + href.slice(searchIndex);
   }
 
   return href
@@ -2850,8 +2860,8 @@ VueRouter.prototype.resolve = function resolve (
   }
 };
 
-VueRouter.prototype.addRoutes = function addRoutes (routes) {
-  this.matcher.addRoutes(routes);
+VueRouter.prototype.addRoutes = function addRoutes (routes, parentPath) {
+  this.matcher.addRoutes(routes, parentPath);
   if (this.history.current !== START) {
     this.history.transitionTo(this.history.getCurrentLocation());
   }
