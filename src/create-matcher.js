@@ -10,7 +10,7 @@ import { normalizeLocation } from './util/location'
 
 export type Matcher = {
   match: (raw: RawLocation, current?: Route, redirectedFrom?: Location) => Route;
-  addRoutes: (routes: Array<RouteConfig>) => void;
+  addRoutes: (routes: Array<RouteConfig>, parentPath?: string) => void;
 };
 
 export function createMatcher (
@@ -19,8 +19,8 @@ export function createMatcher (
 ): Matcher {
   const { pathList, pathMap, nameMap } = createRouteMap(routes)
 
-  function addRoutes (routes) {
-    createRouteMap(routes, pathList, pathMap, nameMap)
+  function addRoutes (routes, parentPath) {
+    createRouteMap(routes, pathList, pathMap, nameMap, parentPath)
   }
 
   function match (

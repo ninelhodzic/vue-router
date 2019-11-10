@@ -8,7 +8,8 @@ export function createRouteMap (
   routes: Array<RouteConfig>,
   oldPathList?: Array<string>,
   oldPathMap?: Dictionary<RouteRecord>,
-  oldNameMap?: Dictionary<RouteRecord>
+  oldNameMap?: Dictionary<RouteRecord>,
+  parentPath?: string
 ): {
   pathList: Array<string>,
   pathMap: Dictionary<RouteRecord>,
@@ -22,7 +23,7 @@ export function createRouteMap (
   const nameMap: Dictionary<RouteRecord> = oldNameMap || Object.create(null)
 
   routes.forEach(route => {
-    addRouteRecord(pathList, pathMap, nameMap, route)
+    addRouteRecord(pathList, pathMap, nameMap, route, undefined, undefined, parentPath)
   })
 
   // ensure wildcard routes are always at the end
@@ -59,7 +60,8 @@ function addRouteRecord (
   nameMap: Dictionary<RouteRecord>,
   route: RouteConfig,
   parent?: RouteRecord,
-  matchAs?: string
+  matchAs?: string,
+  parentPath?: string
 ) {
   const { path, name } = route
   if (process.env.NODE_ENV !== 'production') {
@@ -71,6 +73,8 @@ function addRouteRecord (
       )} cannot be a ` + `string id. Use an actual component instead.`
     )
   }
+
+  parent = parentPath ? pathMap[parentPath] : parent
 
   const pathToRegexpOptions: PathToRegexpOptions =
     route.pathToRegexpOptions || {}
